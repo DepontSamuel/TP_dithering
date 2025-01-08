@@ -1,5 +1,7 @@
 use argh::FromArgs;
 use image::ImageError;
+use std::path::Path;
+use image::RgbImage;
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
 /// Convertit une image en monochrome ou vers une palette réduite de couleurs.
@@ -51,8 +53,22 @@ const YELLOW: image::Rgb<u8> = image::Rgb([255, 255, 0]);
 const MAGENTA: image::Rgb<u8> = image::Rgb([255, 0, 255]);
 const CYAN: image::Rgb<u8> = image::Rgb([0, 255, 255]);
 
-fn main() -> Result<(), ImageError>{
+
+fn main() -> Result<(), ImageError> {
     let args: DitherArgs = argh::from_env();
     let path_in = args.input;
+    let path_out = args.output.unwrap_or_else(|| "image/output.png".to_string());
+
+    // Charger l'image d'entrée
+    let img = image::open(&Path::new(&path_in))?;
+
+    // Convertir en format RGB8
+    let rgb_img: RgbImage = img.to_rgb8();
+
+    // Sauvegarder l'image au format PNG
+    rgb_img.save(&Path::new(&path_out))?;
+
+    println!("Image sauvegardée sous : {}", path_out);
+
     Ok(())
 }
