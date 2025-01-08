@@ -51,8 +51,30 @@ const YELLOW: image::Rgb<u8> = image::Rgb([255, 255, 0]);
 const MAGENTA: image::Rgb<u8> = image::Rgb([255, 0, 255]);
 const CYAN: image::Rgb<u8> = image::Rgb([0, 255, 255]);
 
-fn main() -> Result<(), ImageError>{
+fn main() -> Result<(), ImageError> {
+    // Parse des arguments en ligne de commande
     let args: DitherArgs = argh::from_env();
     let path_in = args.input;
+
+    // Charger l'image
+    let img = image::open(&path_in)?;
+
+    
+
+    let rgb_img: image::RgbImage = img.to_rgb8();
+    let (width, height) = rgb_img.dimensions();
+    
+    // Vérifier si le pixel (32, 52) est dans les limites
+    if 32 < width && 52 < height {
+        let pixel = rgb_img.get_pixel(32, 52);
+        println!(
+            "Le pixel (32, 52) a la couleur: R={}, G={}, B={}",
+            pixel[0], pixel[1], pixel[2]
+        );
+    } else {
+        println!("Le pixel (32, 52) est hors des limites de l'image.");
+    }
+
     Ok(())
 }
+
