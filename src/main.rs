@@ -1,5 +1,6 @@
 use argh::FromArgs;
-use image::ImageError;
+use std::path::Path;
+use image::{ImageError, Rgb, RgbImage};
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
 /// Convertit une image en monochrome ou vers une palette réduite de couleurs.
@@ -28,7 +29,8 @@ enum Mode {
 #[derive(Debug, Clone, PartialEq, FromArgs)]
 #[argh(subcommand, name="seuil")]
 /// Rendu de l’image par seuillage monochrome.
-struct OptsSeuil {}
+struct OptsSeuil {
+}
 
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -41,40 +43,71 @@ struct OptsPalette {
     n_couleurs: usize
 }
  
-const WHITE: image::Rgb<u8> = image::Rgb([255, 255, 255]);
-const GREY: image::Rgb<u8> = image::Rgb([127, 127, 127]);
-const BLACK: image::Rgb<u8> = image::Rgb([0, 0, 0]);
-const BLUE: image::Rgb<u8> = image::Rgb([0, 0, 255]);
-const RED: image::Rgb<u8> = image::Rgb([255, 0, 0]);
-const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
-const YELLOW: image::Rgb<u8> = image::Rgb([255, 255, 0]);
-const MAGENTA: image::Rgb<u8> = image::Rgb([255, 0, 255]);
-const CYAN: image::Rgb<u8> = image::Rgb([0, 255, 255]);
+// const WHITE: image::Rgb<u8> = image::Rgb([255, 255, 255]);
+// const GREY: image::Rgb<u8> = image::Rgb([127, 127, 127]);
+// const BLACK: image::Rgb<u8> = image::Rgb([0, 0, 0]);
+// const BLUE: image::Rgb<u8> = image::Rgb([0, 0, 255]);
+// const RED: image::Rgb<u8> = image::Rgb([255, 0, 0]);
+// const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
+// const YELLOW: image::Rgb<u8> = image::Rgb([255, 255, 0]);
+// const MAGENTA: image::Rgb<u8> = image::Rgb([255, 0, 255]);
+// const CYAN: image::Rgb<u8> = image::Rgb([0, 255, 255]);
+
+
+// Fonction pour calculer la luminosité d'un pixel RGB
+fn luminosite(pixel: &Rgb<u8>) -> u8 {
+    let Rgb(data) = *pixel;
+    // Calcul de la luminosité : Luminosité = 0.2126*R + 0.7152*G + 0.0722*B
+    (0.2126 * data[0] as f32 + 0.7152 * data[1] as f32 + 0.0722 * data[2] as f32) as u8
+}
+
+// Fonction pour appliquer le seuillage monochrome
+fn apply_seuil(image: &mut RgbImage) {
+    let (width, height) = image.dimensions();
+    
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let lum = luminosite(pixel);
+            
+            // Si la luminosité est supérieure ou égale à 128 (50%), le pixel devient blanc
+            let new_pixel = if lum >= 128 {
+                Rgb([255, 255, 255])  // Blanc
+            } else {
+                Rgb([0, 0, 0])  // Noir
+            };
+            
+            image.put_pixel(x, y, new_pixel);
+        }
+    }
+}
 
 fn main() -> Result<(), ImageError> {
-    // Parse des arguments en ligne de commande
     let args: DitherArgs = argh::from_env();
     let path_in = args.input;
+    let path_out = args.output.unwrap_or_else(|| "image/output.png".to_string());
 
-    // Charger l'image
-    let img = image::open(&path_in)?;
+    // Charger l'image d'entrée
+    let img = image::open(&Path::new(&path_in))?;
 
-    
+    // Convertir l'image en format RGB8
+    let mut rgb_img: RgbImage = img.to_rgb8();
 
-    let rgb_img: image::RgbImage = img.to_rgb8();
-    let (width, height) = rgb_img.dimensions();
-    
-    // Vérifier si le pixel (32, 52) est dans les limites
-    if 32 < width && 52 < height {
-        let pixel = rgb_img.get_pixel(32, 52);
-        println!(
-            "Le pixel (32, 52) a la couleur: R={}, G={}, B={}",
-            pixel[0], pixel[1], pixel[2]
-        );
-    } else {
-        println!("Le pixel (32, 52) est hors des limites de l'image.");
+    // Appliquer le mode "seuil" si spécifié
+    match args.mode {
+        Mode::Seuil(_) => {
+            apply_seuil(&mut rgb_img);
+            println!("Traitement en mode seuil appliqué.");
+        },
+        Mode::Palette(_) => {
+            // Pour l'instant, nous n'implémentons rien pour le mode Palette
+        },
     }
+
+    // Sauvegarder l'image modifiée
+    rgb_img.save(&Path::new(&path_out))?;
+
+    println!("Image sauvegardée sous : {}", path_out);
 
     Ok(())
 }
-
