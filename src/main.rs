@@ -53,7 +53,7 @@ const PALETTE: [Rgb<u8>; 8] = [
 fn main() -> Result<(), ImageError> {
     let args: DitherArgs = argh::from_env();
     let path_in = args.input;
-    let path_out = args.output.unwrap_or_else(|| "image/output.png".to_string());
+    let path_out = args.output.unwrap_or_else(|| "image/outputaaaa.png".to_string());
 
     // Charger l'image d'entrée
     let img = image::open(&Path::new(&path_in))?;
@@ -80,30 +80,31 @@ fn apply_seuil(img: RgbImage) -> RgbImage {
 }
 
 fn apply_palette(img: RgbImage, n_couleurs: usize) -> RgbImage {
-    let palette = &PALETTE[..n_couleurs.min(PALETTE.len())];
-    let mut new_img = RgbImage::new(img.width(), img.height());
-
-    for (x, y, pixel) in img.enumerate_pixels() {
-        let closest_color = find_closest_color(pixel, palette);
-        new_img.put_pixel(x, y, closest_color);
+    let mut new_img = img.clone();
+    for pixel in new_img.pixels_mut() {
+        *pixel = plus_proche_couleur(*pixel, &PALETTE[..n_couleurs]);
     }
-
     new_img
 }
 
-fn find_closest_color(pixel: &image::Rgb<u8>, palette: &[image::Rgb<u8>]) -> image::Rgb<u8> {
-    palette.iter()
-        .min_by(|&color1, &color2| {
-            let dist1 = color_distance(pixel, color1);
-            let dist2 = color_distance(pixel, color2);
-            dist1.partial_cmp(&dist2).unwrap()
-        })
-        .cloned()
-        .unwrap_or(image::Rgb([0, 0, 0]))
+
+fn distance_euclidienne(c1: Rgb<u8>, c2: Rgb<u8>) -> f64 {
+    let r = c1[0] as f64 - c2[0] as f64;
+    let g = c1[1] as f64 - c2[1] as f64;
+    let b = c1[2] as f64 - c2[2] as f64;
+    (r * r + g * g + b * b).sqrt()
 }
-fn color_distance(c1: &Rgb<u8>, c2: &Rgb<u8>) -> u32 {
-    let r_diff = c1[0] as i32 - c2[0] as i32;
-    let g_diff = c1[1] as i32 - c2[1] as i32;
-    let b_diff = c1[2] as i32 - c2[2] as i32;
-    (r_diff * r_diff + g_diff * g_diff + b_diff * b_diff) as u32
+
+fn plus_proche_couleur(c: Rgb<u8>, palette: &[Rgb<u8>]) -> Rgb<u8> {
+    let mut min_distance = f64::INFINITY;
+    let mut plus_proche = palette[0];
+    for couleur in palette {
+        let distance = distance_euclidienne(c, *couleur);
+        if distance < min_distance {
+            min_distance = distance;
+            plus_proche = *couleur;
+        }
+    }
+    plus_proche
 }
+

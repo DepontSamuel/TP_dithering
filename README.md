@@ -86,7 +86,7 @@ fn apply_seuil(image: &mut RgbImage, couleur_claire: Rgb<u8>, couleur_foncee: Rg
 } 
 ```
 
-Question 8 : 
+Question 8 :  Permettre à l’utilisateurice de remplacer “noir” et “blanc” par une paire de couleurs au choix.
 
 ```
 // renvoie une couleur a partie d'un string "R,G,B"
@@ -125,3 +125,65 @@ pour seuil bleu et rouge
 
 ![Image Rouge](./image/output_rouge.png)
 
+
+Question 9 : Comment calculer la distance entre deux couleurs?
+
+Pour calculer la distance entre deux couleurs, on peut utiliser la distance euclidienne dans l'espace des couleurs RGB. La formule est la suivante :
+
+```
+const PALETTE: [Rgb<u8>; 8] = [
+    Rgb([0, 0, 0]),
+    Rgb([255, 255, 255]),
+    Rgb([255, 0, 0]),
+    Rgb([0, 255, 0]),
+    Rgb([0, 0, 255]),
+    Rgb([255, 255, 0]),
+    Rgb([0, 255, 255]),
+    Rgb([255, 0, 255]),
+];
+
+fn distance_euclidienne(c1: Rgb<u8>, c2: Rgb<u8>) -> f64 {
+    let r = c1[0] as f64 - c2[0] as f64;
+    let g = c1[1] as f64 - c2[1] as f64;
+    let b = c1[2] as f64 - c2[2] as f64;
+    (r * r + g * g + b * b).sqrt()
+}
+
+fn plus_proche_couleur(c: Rgb<u8>, palette: &[Rgb<u8>]) -> Rgb<u8> {
+    let mut min_distance = f64::INFINITY;
+    let mut plus_proche = palette[0];
+    for couleur in palette {
+        let distance = distance_euclidienne(c, *couleur);
+        if distance < min_distance {
+            min_distance = distance;
+            plus_proche = *couleur;
+        }
+    }
+    plus_proche
+}
+
+fn apply_palette(img: RgbImage, n_couleurs: usize) -> RgbImage {
+    let mut new_img = img.clone();
+    for pixel in new_img.pixels_mut() {
+        *pixel = plus_proche_couleur(*pixel, &PALETTE[..n_couleurs]);
+    }
+    new_img
+}
+```
+
+Cette fonction prend deux couleurs en entrée et retourne la distance euclidienne entre elles.
+
+Question 10 : Votre application doit se comporter correctement si on donne une palette vide. Vous
+expliquerez dans votre README le choix que vous avez fait dans ce cas.
+
+Si la palette est vide, la fonction plus_proche_couleur retourne la couleur noire par défaut. Cela permet de ne pas planter l'application si l'utilisateur ne fournit pas de palette.
+
+exemple d'utilisation :
+
+```
+cargo run -- image/img_iut.jpg palette --n-couleurs 1
+```
+
+PARTIE 5 : 
+
+Question 13 : Déterminer 𝐵3.
