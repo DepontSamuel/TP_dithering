@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use image::{Rgb, RgbImage};
 use rand::Rng; // Nous aurons besoin de la bibliothèque `rand`
 use std::fs; // Pour vérifier et créer des répertoires
@@ -25,7 +25,8 @@ struct DitherArgs {
 enum Mode {
     Seuil(OptsSeuil),
     Palette(OptsPalette),
-    Tramage(OptsTramage) // Ajout de l'option Tramage
+    Tramage(OptsTramage), // Ajout de l'option Tramage
+    Blanchir(OptsBlanchir)
 }
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -57,6 +58,12 @@ struct OptsTramage {
     /// seuil de tramage : une valeur entre 0 et 1 (ex : 0.5)
     #[argh(option, default = "0.5")]
     seuil: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="blanchir")]
+/// Applique un tramage aléatoire sur l'image
+struct OptsBlanchir {
 }
 
 // renvoie une couleur a partie d'un string "R,G,B"
@@ -122,6 +129,7 @@ fn generate_output_filename(input: &str, mode: &Mode, seuil: Option<f32>) -> Str
     let mode_suffix = match mode {
         Mode::Seuil(_) => "_seuil".to_string(),
         Mode::Palette(_) => "_palette".to_string(),
+        Mode::Blanchir(_) => "_blanchir".to_string(),
         Mode::Tramage(_) => {
             if let Some(seuil_value) = seuil {
                 format!("_tramage_{:.1}", seuil_value)
@@ -134,6 +142,20 @@ fn generate_output_filename(input: &str, mode: &Mode, seuil: Option<f32>) -> Str
     let extension = path.extension().unwrap_or_default().to_str().unwrap_or("png");
     format!("{}{}.{extension}", stem, mode_suffix, extension = extension)
 }
+fn passer_pixel_sur_deux_en_blanc(image: &mut RgbImage) {
+    let (width, height) = image.dimensions();
+    
+    for y in 0..height {
+        for x in 0..width {
+            // On passe un pixel sur deux en blanc
+            if (x + y) % 2 == 0 {
+                image.put_pixel(x, y, Rgb([255, 255, 255])); // Pixel blanc
+            }
+        }
+    }
+}
+
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: DitherArgs = argh::from_env();
@@ -172,6 +194,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Mode::Tramage(opts) => {
             apply_tramage(&mut rgb_img, opts.seuil);
             println!("Traitement en mode tramage aléatoire appliqué avec le seuil: {}", opts.seuil);
+        },
+        Mode::Blanchir(_) => {
+            passer_pixel_sur_deux_en_blanc(&mut rgb_img);
+            println!("Traitement en mode blanchiment appliqué");
         },
     }
 
