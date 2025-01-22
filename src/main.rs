@@ -1,6 +1,8 @@
 use argh::FromArgs;
-use std::path::Path;
-use image::{ImageError, Rgb, RgbImage};
+use std::path::{Path, PathBuf};
+use image::{Rgb, RgbImage};
+use rand::Rng; // Nous aurons besoin de la bibliothèque `rand`
+use std::fs; // Pour vérifier et créer des répertoires
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
 /// Convertit une image en monochrome ou vers une palette réduite de couleurs.
@@ -23,6 +25,7 @@ struct DitherArgs {
 enum Mode {
     Seuil(OptsSeuil),
     Palette(OptsPalette),
+    Tramage(OptsTramage) // Ajout de l'option Tramage
 }
 
 #[derive(Debug, Clone, PartialEq, FromArgs)]
@@ -47,6 +50,15 @@ struct OptsPalette {
     n_couleurs: usize
 }
 
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name="tramage")]
+/// Applique un tramage aléatoire sur l'image
+struct OptsTramage {
+    /// seuil de tramage : une valeur entre 0 et 1 (ex : 0.5)
+    #[argh(option, default = "0.5")]
+    seuil: f32,
+}
+
 // renvoie une couleur a partie d'un string "R,G,B"
 fn parse_color(color_str: &str) -> Result<Rgb<u8>, String> {
     let values: Result<Vec<u8>, _> = color_str
@@ -66,7 +78,7 @@ fn luminosite(pixel: &Rgb<u8>) -> u8 {
     (0.2126 * data[0] as f32 + 0.7152 * data[1] as f32 + 0.0722 * data[2] as f32) as u8
 }
 
-//applie un seuillage monochrome sur une image
+// applique un seuillage monochrome sur une image
 fn apply_seuil(image: &mut RgbImage, couleur_claire: Rgb<u8>, couleur_foncee: Rgb<u8>) {
     let (width, height) = image.dimensions();
     for y in 0..height {
@@ -83,11 +95,68 @@ fn apply_seuil(image: &mut RgbImage, couleur_claire: Rgb<u8>, couleur_foncee: Rg
     }
 }
 
+// applique un tramage aléatoire sur l'image
+fn apply_tramage(image: &mut RgbImage, seuil: f32) {
+    let (width, height) = image.dimensions();
+    let mut rng = rand::thread_rng(); // Générateur de nombres aléatoires
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let lum = luminosite(pixel) as f32 / 255.0; // Luminosité normalisée entre 0 et 1
+            let random_threshold: f32 = rng.gen(); // Tirer un seuil aléatoire entre 0 et 1
+            let new_pixel = if lum > random_threshold * seuil {
+                Rgb([255, 255, 255]) // Pixel blanc
+            } else {
+                Rgb([0, 0, 0]) // Pixel noir
+            };
+            image.put_pixel(x, y, new_pixel);
+        }
+    }
+}
+
+// Génère un nom de fichier de sortie basé sur l'entrée et le mode
+fn generate_output_filename(input: &str, mode: &Mode, seuil: Option<f32>) -> String {
+    let path = Path::new(input);
+    let stem = path.file_stem().unwrap().to_str().unwrap();
+
+    let mode_suffix = match mode {
+        Mode::Seuil(_) => "_seuil".to_string(),
+        Mode::Palette(_) => "_palette".to_string(),
+        Mode::Tramage(_) => {
+            if let Some(seuil_value) = seuil {
+                format!("_tramage_{:.1}", seuil_value)
+            } else {
+                "_tramage".to_string()
+            }
+        }
+    };
+
+    let extension = path.extension().unwrap_or_default().to_str().unwrap_or("png");
+    format!("{}{}.{extension}", stem, mode_suffix, extension = extension)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: DitherArgs = argh::from_env();
     let path_in = args.input;
-    let path_out = args.output.unwrap_or_else(|| "output.png".to_string());
+    
+    // Si un output est spécifié, on l'utilise, sinon on génère un nom basé sur l'entrée et le mode
+    let path_out = args.output.unwrap_or_else(|| {
+        generate_output_filename(&path_in, &args.mode, match &args.mode {
+            Mode::Tramage(opts) => Some(opts.seuil),
+            _ => None,
+        })
+    });
 
+    // Créer le répertoire images/output/ si nécessaire
+    let output_dir = Path::new("images/output");
+    if !output_dir.exists() {
+        fs::create_dir_all(output_dir)?;
+    }
+
+    // Construire le chemin complet vers le fichier de sortie
+    let output_path = output_dir.join(path_out);
+
+    // Ouvrir l'image et appliquer le traitement
     let mut rgb_img = image::open(&Path::new(&path_in))?.to_rgb8();
 
     match args.mode {
@@ -100,9 +169,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Mode::Palette(_) => {
             println!("Mode palette non implémenté.");
         },
+        Mode::Tramage(opts) => {
+            apply_tramage(&mut rgb_img, opts.seuil);
+            println!("Traitement en mode tramage aléatoire appliqué avec le seuil: {}", opts.seuil);
+        },
     }
 
-    rgb_img.save(&Path::new(&path_out))?;
-    println!("Image sauvegardée sous : {}", path_out);
+    // Sauvegarder l'image dans le dossier images/output/
+    rgb_img.save(&output_path)?;
+    println!("Image sauvegardée sous : {}", output_path.display());
+
     Ok(())
 }
