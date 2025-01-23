@@ -389,6 +389,31 @@ fn apply_diffusion_matrice(image: &mut RgbImage, palette: &[Rgb<u8>], matrix: &[
     }
 }
 
+fn apply_palette(image: &mut RgbImage, n_couleurs: usize){
+    for pixel in image.pixels_mut() {
+        *pixel = plus_proche_couleur(*pixel, &PALETTE[..n_couleurs]);
+    }
+}
+
+fn distance_euclidienne(c1: Rgb<u8>, c2: Rgb<u8>) -> f64 {
+    let r = c1[0] as f64 - c2[0] as f64;
+    let g = c1[1] as f64 - c2[1] as f64;
+    let b = c1[2] as f64 - c2[2] as f64;
+    (r * r + g * g + b * b).sqrt()
+}
+
+fn plus_proche_couleur(c: Rgb<u8>, palette: &[Rgb<u8>]) -> Rgb<u8> {
+    let mut min_distance = f64::INFINITY;
+    let mut plus_proche = palette[0];
+    for couleur in palette {
+        let distance = distance_euclidienne(c, *couleur);
+        if distance < min_distance {
+            min_distance = distance;
+            plus_proche = *couleur;
+        }
+    }
+    plus_proche
+}
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -422,7 +447,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             apply_seuil(&mut rgb_img, couleur_claire, couleur_foncee);
             println!("Traitement en mode seuil appliqué avec les couleurs personnalisées.");
         },
-        Mode::Palette(_) => {
+        Mode::Palette(opts) => {
+            apply_palette(&mut rgb_img, opts.n_couleurs);
             println!("Mode palette non implémenté.");
         },
         Mode::Tramage(opts) => {
