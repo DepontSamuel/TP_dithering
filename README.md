@@ -244,5 +244,33 @@ B_3 = \frac{1}{64} * \begin{bmatrix}
 \end{bmatrix}
 ```
 
-### Question 14
+### Question 14 : Quel type de données utiliser pour représenter la matrice de Bayer? Comment créer une matrice de Bayer d’ordre arbitraire?
+
+Pour représenter la matrice de Bayer, on peut utiliser un tableau de tableaux de u8. Pour créer une matrice de Bayer d'ordre arbitraire, on doit implémenter une fonction qui génère la matrice en suivant les règles de construction de la matrice de Bayer, soit en étant récursif, soit appelant plusieurs fois la fonction sur la matrice de Bayer de taille inférieure.
+
+### Question 15 :Implémenter le tramage par matrice de Bayer.
+
+```rust
+fn bayer_dithering(image: &RgbImage, bayer: &[[u8; 8]; 8]) -> RgbImage {
+    let mut new_img = image.clone();
+    let (width, height) = image.dimensions();
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let lum = luminosite(&pixel);
+            let seuil = bayer[y as usize % 8][x as usize % 8];
+            let new_pixel = if lum > seuil {
+                Rgb([255, 255, 255])
+            } else {
+                Rgb([0, 0, 0])
+            };
+            new_img.put_pixel(x, y, new_pixel);
+        }
+    }
+    new_img
+}
+```
+
+
+
 

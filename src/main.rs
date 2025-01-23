@@ -64,6 +64,11 @@ fn main() -> Result<(), ImageError> {
     let processed_img = match args.mode {
         Mode::Seuil(_) => apply_seuil(rgb_img),
         Mode::Palette(opts) => apply_palette(rgb_img, opts.n_couleurs),
+
+    let b3 = bayer_dithering(3, 3, &bayer);
+    println!("{:?}", b3);
+
+
     };
 
     // Sauvegarder l'image au format PNG
@@ -108,3 +113,25 @@ fn plus_proche_couleur(c: Rgb<u8>, palette: &[Rgb<u8>]) -> Rgb<u8> {
     plus_proche
 }
 
+fn luminosite(pixel: &Rgb<u8>) -> u8 {
+    (0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32) as u8
+}
+
+fn bayer_dithering(image: &RgbImage, bayer: &[[u8; 8]; 8]) -> RgbImage {
+    let mut new_img = image.clone();
+    let (width, height) = image.dimensions();
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let lum = luminosite(&pixel);
+            let seuil = bayer[y as usize % 8][x as usize % 8];
+            let new_pixel = if lum > seuil {
+                Rgb([255, 255, 255])
+            } else {
+                Rgb([0, 0, 0])
+            };
+            new_img.put_pixel(x, y, new_pixel);
+        }
+    }
+    new_img
+}
